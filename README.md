@@ -2,6 +2,13 @@
 
 EmergenceSystem filter that searches the MusicBrainz open music encyclopedia for artists. No API key required.
 
+
+<!-- emergence-context -->
+Part of **[EmergenceSystem](https://github.com/EmergenceSystem)** — a distributed
+discovery network of small, single-source agents. This filter joins the em_pop gossip
+mesh and answers `POST /agent/query`; Emquest fans each query out to many filters in
+parallel and aggregates the results.
+
 ## Input
 
 ```json
