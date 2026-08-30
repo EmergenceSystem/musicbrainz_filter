@@ -151,7 +151,7 @@ build_embryo(#{<<"id">> := Id, <<"name">> := Name} = Artist) ->
     Resume   = format_resume(AType, Disambig),
     {true, #{
         <<"properties">> => #{
-            <<"url">>    => list_to_binary(Url),
+            <<"url">>    => unicode:characters_to_binary(Url),
             <<"resume">> => Resume,
             <<"title">>  => Name,
             <<"mbid">>   => Id,
@@ -166,7 +166,7 @@ format_resume(Type, Disambig) ->
     D = if is_binary(Disambig),byte_size(Disambig)> 0 -> binary_to_list(Disambig);true -> "" end,
     case {T, D} of
         {"", ""}  -> <<"">>;
-        {T2, ""}  -> list_to_binary(T2);
-        {"", D2}  -> list_to_binary(D2);
-        {T2, D2}  -> list_to_binary(T2 ++ " — " ++ D2)
+        {T2, ""}  -> unicode:characters_to_binary(T2);
+        {"", D2}  -> unicode:characters_to_binary(D2);
+        {T2, D2}  -> unicode:characters_to_binary(T2 ++ " — " ++ D2)
     end.
