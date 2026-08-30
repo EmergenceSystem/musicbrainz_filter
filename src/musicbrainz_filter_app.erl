@@ -38,13 +38,50 @@ base_capabilities() ->
 %%====================================================================
 
 start(_Type, _Args) ->
-    em_filter:start_agent(musicbrainz_filter, ?MODULE, #{
-        capabilities => base_capabilities()
-    }),
-    {ok, self()}.
+    case musicbrainz_filter_sup:start_link() of
+        {ok, Pid} ->
+            ok = start_pop_and_http(),
+            {ok, Pid};
+        Error ->
+            Error
+    end.
 
 stop(_State) ->
-    em_filter:stop_agent(musicbrainz_filter).
+    catch cowboy:stop_listener(musicbrainz_filter_query_listener),
+    catch em_pop_sup:stop_node(musicbrainz_filter),
+    ok.
+
+%%====================================================================
+%% Internal
+%%====================================================================
+
+start_pop_and_http() ->
+    PopPort   = application:get_env(musicbrainz_filter, pop_port,   9538),
+    QueryPort = application:get_env(musicbrainz_filter, query_port, 9539),
+    Seeds     = application:get_env(musicbrainz_filter, pop_seeds,  []),
+    Vec = em_filter_vec:from_capabilities(base_capabilities()),
+    catch em_pop_sup:stop_node(musicbrainz_filter),
+    catch cowboy:stop_listener(musicbrainz_filter_query_listener),
+    {ok, PopPid} = em_pop_sup:start_node(musicbrainz_filter, #{
+        port            => PopPort,
+        query_port      => QueryPort,
+        vector          => Vec,
+        max_peers       => 100,
+        gossip_interval => 5_000
+    }),
+    lists:foreach(
+        fun({H, P}) -> catch em_pop_node:add_peer(PopPid, H, P) end,
+        Seeds),
+    Dispatch = cowboy_router:compile([
+        {'_', [{"/agent/query", em_filter_http,
+                #{server => musicbrainz_filter_server}}]}
+    ]),
+    {ok, _} = cowboy:start_clear(musicbrainz_filter_query_listener,
+                                  [{port, QueryPort}],
+                                  #{env => #{dispatch => Dispatch}}),
+    logger:notice("[musicbrainz_filter] gossip port ~w  query port ~w",
+                  [PopPort, QueryPort]),
+    ok.
 
 %%====================================================================
 %% Agent handler
